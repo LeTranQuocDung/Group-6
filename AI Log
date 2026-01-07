@@ -1,5 +1,5 @@
 2.1. E-Commerce Simulation (Mô hình Shopee/Lazada) Thực thể: User, Shop, Product (với nhiều biến thể Size/Màu), Order, Voucher. Thách thức: Xử lý giỏ hàng, tính toán khuyến mãi chồng chéo, logic tồn kho biến thể. Simulator: Giả lập "Flash Sale" - hàng nghìn user cùng đặt hàng một lúc, hệ thống phải trừ kho chính xác. đề này,  tạo bộ dữ liệu mẫu legacy data bằng script >10000 dòng cố tình cài cắm lỗi sài format vẫn theo đề bài trên
-Bạn cần 1 bộ legacy data cho E-Commerce (Shopee/Lazada), > 10.000 dòng, viết bằng JavaScript, và CỐ TÌNH CÀI CẮM LỖI nhưng vẫn bám format theo đề bài (User / Shop / Product / Variant / Order / Voucher).
+Bạn cần 1 bộ legacy data cho E-Commerce (Shopee/Lazada), > 10.000 dòng, viết bằng Script, và CỐ TÌNH CÀI CẮM LỖI nhưng vẫn bám format theo đề bài (User / Shop / Product / Variant / Order / Voucher).
 
 Dưới đây là dataset “độc ác” đúng chất legacy để test hệ thống chịu lỗi 😈
 
