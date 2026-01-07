@@ -1,196 +1,232 @@
-2.1. E-Commerce Simulation (Mô hình Shopee/Lazada) Thực thể: User, Shop, Product (với nhiều biến thể Size/Màu), Order, Voucher. Thách thức: Xử lý giỏ hàng, tính toán khuyến mãi chồng chéo, logic tồn kho biến thể. Simulator: Giả lập "Flash Sale" - hàng nghìn user cùng đặt hàng một lúc, hệ thống phải trừ kho chính xác. đề này,  tạo bộ dữ liệu mẫu legacy data bằng script >10000 dòng cố tình cài cắm lỗi sài format vẫn theo đề bài trên
-Bạn cần 1 bộ legacy data cho E-Commerce (Shopee/Lazada), > 10.000 dòng, viết bằng Script, và CỐ TÌNH CÀI CẮM LỖI nhưng vẫn bám format theo đề bài (User / Shop / Product / Variant / Order / Voucher).
+2.1. E-Commerce Simulation (Mô hình Shopee/Lazada) Thực thể: User, Shop, Product (với nhiều biến thể Size/Màu), Order, Voucher. Thách thức: Xử lý giỏ hàng, tính toán khuyến mãi chồng chéo, logic tồn kho biến thể. Simulator: Giả lập "Flash Sale" - hàng nghìn user cùng đặt hàng một lúc, hệ thống phải trừ kho chính xác. tạo bộ dữ liệu mẫu legacy data bằng script >10000 dòng cố tình cài cắm lỗi sai format viết bằng java
+Ý tưởng dataset (legacy bẩn có chủ đích)
+Thực thể trộn chung 1 file (rất legacy)
 
-Dưới đây là dataset “độc ác” đúng chất legacy để test hệ thống chịu lỗi 😈
+USER
 
-🧨 Mục tiêu bộ dữ liệu này
+SHOP
 
-Dataset này KHÔNG clean, dùng để test:
+PRODUCT (có variant Size/Màu)
 
-❌ Oversell kho (đặt hàng > tồn)
+ORDER
 
-❌ Voucher sai luật (stack khi không được)
+ORDER_ITEM
 
-❌ Order trỏ variant không tồn tại
+VOUCHER
 
-❌ Giá âm / giá 0
+👉 Cố tình vi phạm chuẩn:
 
-❌ Format date lẫn lộn
+Lẫn delimiter | , ;
 
-❌ Flag boolean lộn xộn (0/1, Y/N, true/false)
+Thiếu cột
 
-❌ User / Shop bị deleted nhưng vẫn order
+Thừa cột
 
-❌ Flash Sale race condition (cùng timestamp)
+Sai kiểu dữ liệu
 
-👉 Rất phù hợp cho:
+Âm số lượng tồn kho
 
-migrate legacy → system mới
+Giá = text
 
-validate data
+Order trừ kho sai
 
-test transaction & locking
+Voucher chồng sai rule
 
-interview system design 😏
+Dòng bị cắt nửa chừng
 
-📁 Output (≈ 70.000+ dòng JSON)
-legacy-users.json
-legacy-shops.json
-legacy-products.json
-legacy-variants.json
-legacy-vouchers.json
-legacy-orders.json
+Encoding ký tự Việt lẫn ASCII
 
-📜 SCRIPT: generate-broken-legacy-ecommerce.js
-const fs = require("fs");
+Format giả (không thống nhất – cố ý)
+TYPE|field1|field2|field3...
 
-/* ================= CONFIG ================= */
-const USERS = 12000;
-const SHOPS = 800;
-const PRODUCTS = 3000;
-const VARIANTS_PER_PRODUCT = 4;
-const ORDERS = 20000;
 
-/* ================= UTILS ================= */
-const rand = (min, max) =>
-  Math.floor(Math.random() * (max - min + 1)) + min;
+Ví dụ:
 
-const pick = (arr) => arr[rand(0, arr.length - 1)];
+USER|u102|Phúc Lê|phuc@email.com|ACTIVE
+PRODUCT|p88|shop3|Áo thun|RED|L|199000|50
+ORDER_ITEM|o12|p88|RED|L|3|199000
 
-const legacyDate = () => {
-  const formats = [
-    () => `${rand(1,28)}/${rand(1,12)}/2023`,
-    () => `2023-${rand(1,12)}-${rand(1,28)}`,
-    () => `${rand(1,28)}-${rand(1,12)}-23`,
-    () => "INVALID_DATE"
-  ];
-  return pick(formats)();
-};
 
-/* ================= USERS ================= */
-const users = [];
-for (let i = 1; i <= USERS; i++) {
-  users.push({
-    user_id: i,
-    username: `user_${i}`,
-    phone: i % 50 === 0 ? null : `09${rand(10000000, 99999999)}`,
-    is_active: pick([0, 1, "Y", "N"]),
-    deleted_flag: i % 120 === 0 ? "Y" : "N",
-    created_at: legacyDate()
-  });
+Nhưng sẽ có dòng lỗi như:
+
+PRODUCT,p91,shop2,Áo sơ mi,X,L,abc,20
+ORDER|o77|u5|shop3|2025-13-40|FLASHSALE
+ORDER_ITEM|o77|p12|RED|M|-5|150000
+USER|u9|Nguyễn Văn A
+
+Java Script – Legacy Data Generator (>10.000 dòng)
+
+Chạy là nó tạo file legacy_ecommerce_data.txt
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Random;
+
+public class LegacyEcommerceDataGenerator {
+
+    static Random random = new Random();
+
+    static String[] colors = {"RED", "BLUE", "BLACK", "WHITE", "GREEN"};
+    static String[] sizes = {"S", "M", "L", "XL"};
+    static String[] statuses = {"ACTIVE", "BLOCKED", "BANNED"};
+    static String[] delimiters = {"|", ",", ";"};
+
+    public static void main(String[] args) throws IOException {
+        BufferedWriter writer = new BufferedWriter(
+                new FileWriter("legacy_ecommerce_data.txt"));
+
+        int TOTAL_LINES = 12000;
+
+        for (int i = 1; i <= TOTAL_LINES; i++) {
+            int type = random.nextInt(6);
+
+            String line;
+            switch (type) {
+                case 0:
+                    line = genUser(i);
+                    break;
+                case 1:
+                    line = genShop(i);
+                    break;
+                case 2:
+                    line = genProduct(i);
+                    break;
+                case 3:
+                    line = genOrder(i);
+                    break;
+                case 4:
+                    line = genOrderItem(i);
+                    break;
+                default:
+                    line = genVoucher(i);
+            }
+
+            // 10% dòng bị cắt nửa (legacy crash)
+            if (random.nextInt(10) == 0) {
+                line = line.substring(0, random.nextInt(line.length() / 2 + 1));
+            }
+
+            writer.write(line);
+            writer.newLine();
+        }
+
+        writer.close();
+        System.out.println("Generated legacy_ecommerce_data.txt");
+    }
+
+    static String d() {
+        return delimiters[random.nextInt(delimiters.length)];
+    }
+
+    static String genUser(int i) {
+        String delim = d();
+
+        // thiếu field email (lỗi)
+        if (random.nextInt(8) == 0) {
+            return "USER" + delim + "u" + i + delim + "Nguyen Van " + i;
+        }
+
+        return "USER" + delim +
+                "u" + i + delim +
+                "User_" + i + delim +
+                "user" + i + "@mail.com" + delim +
+                statuses[random.nextInt(statuses.length)];
+    }
+
+    static String genShop(int i) {
+        String delim = d();
+
+        return "SHOP" + delim +
+                "s" + i + delim +
+                "Shop_" + i + delim +
+                (random.nextBoolean() ? "ACTIVE" : "INACTIVE");
+    }
+
+    static String genProduct(int i) {
+        String delim = d();
+
+        // giá bị text (lỗi)
+        String price = random.nextInt(10) == 0 ? "abc"
+                : String.valueOf(10000 + random.nextInt(500000));
+
+        // tồn kho âm (lỗi)
+        int stock = random.nextInt(10) == 0 ? -random.nextInt(20)
+                : random.nextInt(500);
+
+        return "PRODUCT" + delim +
+                "p" + i + delim +
+                "s" + random.nextInt(200) + delim +
+                "Product_" + i + delim +
+                colors[random.nextInt(colors.length)] + delim +
+                sizes[random.nextInt(sizes.length)] + delim +
+                price + delim +
+                stock;
+    }
+
+    static String genOrder(int i) {
+        String delim = d();
+
+        // ngày sai format
+        String date = random.nextInt(6) == 0
+                ? "2025-13-45"
+                : "2025-01-" + (1 + random.nextInt(28));
+
+        return "ORDER" + delim +
+                "o" + i + delim +
+                "u" + random.nextInt(1000) + delim +
+                "s" + random.nextInt(200) + delim +
+                date + delim +
+                (random.nextBoolean() ? "FLASHSALE" : "NORMAL");
+    }
+
+    static String genOrderItem(int i) {
+        String delim = d();
+
+        // số lượng âm hoặc 0 (lỗi logic)
+        int qty = random.nextInt(7) == 0 ? -random.nextInt(5)
+                : 1 + random.nextInt(5);
+
+        return "ORDER_ITEM" + delim +
+                "o" + random.nextInt(3000) + delim +
+                "p" + random.nextInt(2000) + delim +
+                colors[random.nextInt(colors.length)] + delim +
+                sizes[random.nextInt(sizes.length)] + delim +
+                qty + delim +
+                (10000 + random.nextInt(300000));
+    }
+
+    static String genVoucher(int i) {
+        String delim = d();
+
+        // discount > 100% (lỗi)
+        int discount = random.nextInt(8) == 0
+                ? 150
+                : 5 + random.nextInt(50);
+
+        return "VOUCHER" + delim +
+                "v" + i + delim +
+                "FLASH_" + i + delim +
+                discount + delim +
+                (random.nextBoolean() ? "STACKABLE" : "EXCLUSIVE");
+    }
 }
 
-/* ================= SHOPS ================= */
-const shops = [];
-for (let i = 1; i <= SHOPS; i++) {
-  shops.push({
-    shop_id: i,
-    shop_name: `SHOP_${i}`,
-    owner_user_id: rand(1, USERS),
-    rating_avg: i % 40 === 0 ? 7.8 : (Math.random() * 5).toFixed(2), // rating > 5
-    is_official: pick([0, 1, "true", "false"]),
-    created_at: legacyDate()
-  });
-}
+Dataset này dùng để làm gì là chuẩn bài?
 
-/* ================= PRODUCTS ================= */
-const products = [];
-for (let i = 1; i <= PRODUCTS; i++) {
-  products.push({
-    product_id: i,
-    shop_id: rand(1, SHOPS),
-    product_name: `PRODUCT_${i}`,
-    base_price:
-      i % 55 === 0 ? -1000 : rand(10000, 500000), // price âm
-    is_flash_sale: pick([0, 1, "Y", "N"]),
-    created_at: legacyDate()
-  });
-}
+✔ Test parser chịu lỗi
+✔ Migration từ legacy text → DB
+✔ Validate inventory theo variant
+✔ Test flash sale concurrency (khi load vào DB)
+✔ Viết data cleansing rules
+✔ Chaos engineering cho ETL 😈
 
-/* ================= VARIANTS ================= */
-const variants = [];
-let variantId = 1;
+Nếu bạn muốn:
 
-products.forEach((p) => {
-  for (let i = 0; i < VARIANTS_PER_PRODUCT; i++) {
-    variants.push({
-      variant_id: variantId++,
-      product_id:
-        variantId % 97 === 0 ? 999999 : p.product_id, // product không tồn tại
-      size: pick(["S", "M", "L", null]),
-      color: pick(["RED", "BLUE", "BLACK", "???"]),
-      stock_qty:
-        variantId % 45 === 0 ? -5 : rand(0, 100), // kho âm
-      price_override:
-        variantId % 60 === 0 ? 0 : rand(8000, 450000),
-      legacy_stock_flag: pick([0, 1, "Y", "N"])
-    });
-  }
-});
+Tách mỗi entity ra 1 file
 
-/* ================= VOUCHERS ================= */
-const vouchers = [];
-for (let i = 1; i <= 500; i++) {
-  vouchers.push({
-    voucher_code: `VC_${i}`,
-    discount_type: pick(["PERCENT", "FIXED", "UNKNOWN"]),
-    discount_value: i % 30 === 0 ? 150 : rand(5, 50), // percent > 100
-    min_order_value: rand(0, 300000),
-    max_discount: rand(0, 200000),
-    is_stackable: pick([0, 1, "Y", "N"]),
-    expired_at: legacyDate()
-  });
-}
+Sinh race condition giả lập Flash Sale
 
-/* ================= ORDERS (FLASH SALE CHAOS) ================= */
-const orders = [];
-for (let i = 1; i <= ORDERS; i++) {
-  const product = pick(products);
-  const variant = pick(variants);
+Sinh log trừ kho sai thứ tự
 
-  orders.push({
-    order_id: i,
-    user_id:
-      i % 88 === 0 ? 999999 : rand(1, USERS), // user không tồn tại
-    shop_id: product.shop_id,
-    product_id: product.product_id,
-    variant_id:
-      i % 77 === 0 ? 888888 : variant.variant_id, // variant không tồn tại
-    qty:
-      i % 66 === 0 ? 999 : rand(1, 5), // oversell
-    price_at_time:
-      i % 44 === 0 ? -5000 : variant.price_override,
-    voucher_used:
-      i % 3 === 0 ? pick(vouchers).voucher_code : "INVALID_VOUCHER",
-    order_status: pick([
-      "CREATED",
-      "PAID",
-      "CANCELLED",
-      "UNKNOWN"
-    ]),
-    order_time:
-      product.is_flash_sale == 1
-        ? "01/12/2023 20:00" // flash sale cùng thời điểm
-        : legacyDate()
-  });
-}
-
-/* ================= WRITE FILES ================= */
-fs.writeFileSync("legacy-users.json", JSON.stringify(users, null, 2));
-fs.writeFileSync("legacy-shops.json", JSON.stringify(shops, null, 2));
-fs.writeFileSync("legacy-products.json", JSON.stringify(products, null, 2));
-fs.writeFileSync("legacy-variants.json", JSON.stringify(variants, null, 2));
-fs.writeFileSync("legacy-vouchers.json", JSON.stringify(vouchers, null, 2));
-fs.writeFileSync("legacy-orders.json", JSON.stringify(orders, null, 2));
-
-console.log("💣 Broken legacy e-commerce dataset generated");
-
-🧪 Các lỗi được cài cắm (tóm tắt)
-Loại lỗi	Ví dụ
-Oversell	qty = 999, stock_qty < 0
-FK sai	order → variant_id không tồn tại
-Voucher sai	percent > 100, code không tồn tại
-Giá lỗi	price âm / =0
-Date lỗi	INVALID_DATE
-Boolean loạn	0 / 1 / Y / N / "true"
-Flash Sale	hàng nghìn order cùng timestamp
+Hoặc generate SQL insert lỗi
