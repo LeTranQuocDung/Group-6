@@ -1,0 +1,232 @@
+2.1. E-Commerce Simulation (Mô hình Shopee/Lazada) Thực thể: User, Shop, Product (với nhiều biến thể Size/Màu), Order, Voucher. Thách thức: Xử lý giỏ hàng, tính toán khuyến mãi chồng chéo, logic tồn kho biến thể. Simulator: Giả lập "Flash Sale" - hàng nghìn user cùng đặt hàng một lúc, hệ thống phải trừ kho chính xác. tạo bộ dữ liệu mẫu legacy data bằng script >10000 dòng cố tình cài cắm lỗi sai format viết bằng java
+Ý tưởng dataset (legacy bẩn có chủ đích)
+Thực thể trộn chung 1 file (rất legacy)
+
+USER
+
+SHOP
+
+PRODUCT (có variant Size/Màu)
+
+ORDER
+
+ORDER_ITEM
+
+VOUCHER
+
+👉 Cố tình vi phạm chuẩn:
+
+Lẫn delimiter | , ;
+
+Thiếu cột
+
+Thừa cột
+
+Sai kiểu dữ liệu
+
+Âm số lượng tồn kho
+
+Giá = text
+
+Order trừ kho sai
+
+Voucher chồng sai rule
+
+Dòng bị cắt nửa chừng
+
+Encoding ký tự Việt lẫn ASCII
+
+Format giả (không thống nhất – cố ý)
+TYPE|field1|field2|field3...
+
+
+Ví dụ:
+
+USER|u102|Phúc Lê|phuc@email.com|ACTIVE
+PRODUCT|p88|shop3|Áo thun|RED|L|199000|50
+ORDER_ITEM|o12|p88|RED|L|3|199000
+
+
+Nhưng sẽ có dòng lỗi như:
+
+PRODUCT,p91,shop2,Áo sơ mi,X,L,abc,20
+ORDER|o77|u5|shop3|2025-13-40|FLASHSALE
+ORDER_ITEM|o77|p12|RED|M|-5|150000
+USER|u9|Nguyễn Văn A
+
+Java Script – Legacy Data Generator (>10.000 dòng)
+
+Chạy là nó tạo file legacy_ecommerce_data.txt
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Random;
+
+public class LegacyEcommerceDataGenerator {
+
+    static Random random = new Random();
+
+    static String[] colors = {"RED", "BLUE", "BLACK", "WHITE", "GREEN"};
+    static String[] sizes = {"S", "M", "L", "XL"};
+    static String[] statuses = {"ACTIVE", "BLOCKED", "BANNED"};
+    static String[] delimiters = {"|", ",", ";"};
+
+    public static void main(String[] args) throws IOException {
+        BufferedWriter writer = new BufferedWriter(
+                new FileWriter("legacy_ecommerce_data.txt"));
+
+        int TOTAL_LINES = 12000;
+
+        for (int i = 1; i <= TOTAL_LINES; i++) {
+            int type = random.nextInt(6);
+
+            String line;
+            switch (type) {
+                case 0:
+                    line = genUser(i);
+                    break;
+                case 1:
+                    line = genShop(i);
+                    break;
+                case 2:
+                    line = genProduct(i);
+                    break;
+                case 3:
+                    line = genOrder(i);
+                    break;
+                case 4:
+                    line = genOrderItem(i);
+                    break;
+                default:
+                    line = genVoucher(i);
+            }
+
+            // 10% dòng bị cắt nửa (legacy crash)
+            if (random.nextInt(10) == 0) {
+                line = line.substring(0, random.nextInt(line.length() / 2 + 1));
+            }
+
+            writer.write(line);
+            writer.newLine();
+        }
+
+        writer.close();
+        System.out.println("Generated legacy_ecommerce_data.txt");
+    }
+
+    static String d() {
+        return delimiters[random.nextInt(delimiters.length)];
+    }
+
+    static String genUser(int i) {
+        String delim = d();
+
+        // thiếu field email (lỗi)
+        if (random.nextInt(8) == 0) {
+            return "USER" + delim + "u" + i + delim + "Nguyen Van " + i;
+        }
+
+        return "USER" + delim +
+                "u" + i + delim +
+                "User_" + i + delim +
+                "user" + i + "@mail.com" + delim +
+                statuses[random.nextInt(statuses.length)];
+    }
+
+    static String genShop(int i) {
+        String delim = d();
+
+        return "SHOP" + delim +
+                "s" + i + delim +
+                "Shop_" + i + delim +
+                (random.nextBoolean() ? "ACTIVE" : "INACTIVE");
+    }
+
+    static String genProduct(int i) {
+        String delim = d();
+
+        // giá bị text (lỗi)
+        String price = random.nextInt(10) == 0 ? "abc"
+                : String.valueOf(10000 + random.nextInt(500000));
+
+        // tồn kho âm (lỗi)
+        int stock = random.nextInt(10) == 0 ? -random.nextInt(20)
+                : random.nextInt(500);
+
+        return "PRODUCT" + delim +
+                "p" + i + delim +
+                "s" + random.nextInt(200) + delim +
+                "Product_" + i + delim +
+                colors[random.nextInt(colors.length)] + delim +
+                sizes[random.nextInt(sizes.length)] + delim +
+                price + delim +
+                stock;
+    }
+
+    static String genOrder(int i) {
+        String delim = d();
+
+        // ngày sai format
+        String date = random.nextInt(6) == 0
+                ? "2025-13-45"
+                : "2025-01-" + (1 + random.nextInt(28));
+
+        return "ORDER" + delim +
+                "o" + i + delim +
+                "u" + random.nextInt(1000) + delim +
+                "s" + random.nextInt(200) + delim +
+                date + delim +
+                (random.nextBoolean() ? "FLASHSALE" : "NORMAL");
+    }
+
+    static String genOrderItem(int i) {
+        String delim = d();
+
+        // số lượng âm hoặc 0 (lỗi logic)
+        int qty = random.nextInt(7) == 0 ? -random.nextInt(5)
+                : 1 + random.nextInt(5);
+
+        return "ORDER_ITEM" + delim +
+                "o" + random.nextInt(3000) + delim +
+                "p" + random.nextInt(2000) + delim +
+                colors[random.nextInt(colors.length)] + delim +
+                sizes[random.nextInt(sizes.length)] + delim +
+                qty + delim +
+                (10000 + random.nextInt(300000));
+    }
+
+    static String genVoucher(int i) {
+        String delim = d();
+
+        // discount > 100% (lỗi)
+        int discount = random.nextInt(8) == 0
+                ? 150
+                : 5 + random.nextInt(50);
+
+        return "VOUCHER" + delim +
+                "v" + i + delim +
+                "FLASH_" + i + delim +
+                discount + delim +
+                (random.nextBoolean() ? "STACKABLE" : "EXCLUSIVE");
+    }
+}
+
+Dataset này dùng để làm gì là chuẩn bài?
+
+✔ Test parser chịu lỗi
+✔ Migration từ legacy text → DB
+✔ Validate inventory theo variant
+✔ Test flash sale concurrency (khi load vào DB)
+✔ Viết data cleansing rules
+✔ Chaos engineering cho ETL 😈
+
+Nếu bạn muốn:
+
+Tách mỗi entity ra 1 file
+
+Sinh race condition giả lập Flash Sale
+
+Sinh log trừ kho sai thứ tự
+
+Hoặc generate SQL insert lỗi
