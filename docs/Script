@@ -1,0 +1,131 @@
+Đúng như giảng viên của bạn nói, con số 10.000 dòng đối với Database là rất nhỏ. Nếu dùng vòng lặp (Loop) trong SQL thì máy tính chỉ chạy mất khoảng 3-5 giây là xong.
+
+Để đáp ứng đúng tiêu chí: "Tổng hợp nhiều bảng" và "Có dữ liệu bẩn", mình sẽ viết cho bạn một Script SQL mới. Script này sẽ tạo ra một hệ sinh thái dữ liệu giả lập hệ thống cũ gồm 3 bảng liên kết nhau:
+
+Legacy_Users (Khách hàng cũ): 2.000 dòng.
+
+Legacy_Products (Sản phẩm cũ): 2.000 dòng.
+
+Legacy_Orders (Đơn hàng cũ): 6.000 dòng. => Tổng cộng: 10.000 dòng. (Đúng chỉ tiêu).
+
+Trong đó, mình sẽ cài cắm 5-10% lỗi (Email sai, Số điện thoại thiếu, Giá âm...) để bạn có cái mà xử lý khi Import.
+
+Shutterstock
+
+Script SQL Server: Sinh 10.000 dòng dữ liệu (Chạy 1 lần là đủ)
+Bạn copy toàn bộ đoạn này vào SQL Server Management Studio (SSMS) và bấm Execute (F5).
+
+SQL
+
+USE ShopeeDB; -- Nhớ đổi tên Database của bạn
+GO
+
+-- =============================================
+-- 1. TẠO CÁC BẢNG TẠM (LEGACY SYSTEM)
+-- =============================================
+-- Bảng Khách hàng cũ (Chứa rác: Email sai, SĐT thiếu số)
+CREATE TABLE Legacy_Users (
+    UserID INT IDENTITY(1,1) PRIMARY KEY,
+    Raw_Fullname NVARCHAR(100),
+    Raw_Email NVARCHAR(100),
+    Raw_Phone NVARCHAR(20)
+);
+
+-- Bảng Sản phẩm cũ (Chứa rác: Giá âm, Tên rỗng)
+CREATE TABLE Legacy_Products (
+    ProdID INT IDENTITY(1,1) PRIMARY KEY,
+    Raw_Name NVARCHAR(255),
+    Raw_Price NVARCHAR(50), -- Để NVARCHAR để chứa được chữ cái rác
+    Raw_Stock INT
+);
+
+-- Bảng Đơn hàng cũ (Liên kết User và Product)
+CREATE TABLE Legacy_Orders (
+    OrderID INT IDENTITY(1,1) PRIMARY KEY,
+    UserID INT, -- Khóa ngoại giả (tham chiếu Legacy_Users)
+    ProdID INT, -- Khóa ngoại giả (tham chiếu Legacy_Products)
+    OrderDate DATE,
+    Quantity INT
+);
+GO
+
+-- =============================================
+-- 2. SCRIPT TỰ ĐỘNG SINH DỮ LIỆU
+-- =============================================
+BEGIN TRANSACTION;
+DECLARE @i INT = 1;
+DECLARE @RandomVal INT;
+
+-- --- PHẦN 1: TẠO 2.000 USER (KHÁCH HÀNG) ---
+PRINT 'Đang tạo 2.000 Users...';
+SET @i = 1;
+WHILE @i <= 2000
+BEGIN
+    SET @RandomVal = ABS(CHECKSUM(NEWID())) % 100;
+    
+    DECLARE @Name NVARCHAR(100) = 'User ' + CAST(@i AS NVARCHAR);
+    DECLARE @Email NVARCHAR(100);
+    DECLARE @Phone NVARCHAR(20);
+
+    -- Tạo lỗi Email (5%)
+    IF @RandomVal < 5 SET @Email = 'user' + CAST(@i AS NVARCHAR); -- Thiếu @gmail.com
+    ELSE SET @Email = 'user' + CAST(@i AS NVARCHAR) + '@gmail.com';
+
+    -- Tạo lỗi SĐT (5%)
+    IF @RandomVal < 5 SET @Phone = '090123'; -- Thiếu số
+    ELSE IF @RandomVal < 10 SET @Phone = 'ABC-XYZ'; -- SĐT chứa chữ
+    ELSE SET @Phone = '09' + CAST(ABS(CHECKSUM(NEWID())) % 100000000 AS NVARCHAR);
+
+    INSERT INTO Legacy_Users (Raw_Fullname, Raw_Email, Raw_Phone)
+    VALUES (@Name, @Email, @Phone);
+    
+    SET @i = @i + 1;
+END
+
+-- --- PHẦN 2: TẠO 2.000 PRODUCTS (SẢN PHẨM) ---
+PRINT 'Đang tạo 2.000 Products...';
+SET @i = 1;
+WHILE @i <= 2000
+BEGIN
+    SET @RandomVal = ABS(CHECKSUM(NEWID())) % 100;
+    
+    DECLARE @PName NVARCHAR(255);
+    DECLARE @PPrice NVARCHAR(50);
+    DECLARE @PStock INT;
+
+    -- Tạo lỗi Tên và Giá (10%)
+    IF @RandomVal < 5 SET @PName = NULL; -- Tên rỗng
+    ELSE SET @PName = 'San Pham ' + CAST(@i AS NVARCHAR);
+
+    IF @RandomVal < 5 SET @PPrice = '-100000'; -- Giá âm
+    ELSE IF @RandomVal < 8 SET @PPrice = 'Hai tram nghin'; -- Giá chữ
+    ELSE SET @PPrice = CAST((ABS(CHECKSUM(NEWID())) % 5000) * 1000 AS NVARCHAR);
+
+    SET @PStock = ABS(CHECKSUM(NEWID())) % 100;
+
+    INSERT INTO Legacy_Products (Raw_Name, Raw_Price, Raw_Stock)
+    VALUES (@PName, @PPrice, @PStock);
+
+    SET @i = @i + 1;
+END
+
+-- --- PHẦN 3: TẠO 6.000 ORDERS (ĐƠN HÀNG) ---
+-- Mẹo của thầy: Lấy ID từ 2 bảng trên ghép lại -> Tăng số lượng cực nhanh
+PRINT 'Đang tạo 6.000 Orders...';
+SET @i = 1;
+WHILE @i <= 6000
+BEGIN
+    -- Random UserID từ 1 đến 2000
+    DECLARE @RandUserID INT = (ABS(CHECKSUM(NEWID())) % 2000) + 1;
+    -- Random ProdID từ 1 đến 2000
+    DECLARE @RandProdID INT = (ABS(CHECKSUM(NEWID())) % 2000) + 1;
+    
+    INSERT INTO Legacy_Orders (UserID, ProdID, OrderDate, Quantity)
+    VALUES (@RandUserID, @RandProdID, GETDATE(), 1);
+
+    SET @i = @i + 1;
+END
+
+COMMIT TRANSACTION;
+PRINT '=== HOÀN TẤT! ĐÃ CÓ TỔNG CỘNG 10.000 DÒNG DỮ LIỆU ===';
+Dữ liệu bẩn (Dirty Data): "Em đã dùng thuật toán Random để cài cắm khoảng 7% dữ liệu lỗi như: Email thiếu đuôi @, Giá tiền bị âm, Số điện thoại chứa chữ cái... nhằm mục đích test chức năng Import & Cleaning của hệ thống mới."
