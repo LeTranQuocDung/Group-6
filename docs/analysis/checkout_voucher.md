@@ -12,8 +12,8 @@ graph TD
     D -->|Yes| D1[Stop]
     D -->|No| E[Calc Base Price]
 
-    E --> F[Apply Flash Sale]
-    F --> G[Apply Shop Voucher]
+    
+    E --> G[Apply Shop Voucher]
     G --> H[Apply Platform Voucher]
 
     H --> I[Calc Final Amount]
