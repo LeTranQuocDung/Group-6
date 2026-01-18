@@ -1,6 +1,6 @@
 LAB211 GROUP 6
 
-Project: Shopee
+Project: E-Commerce Simulation (Shopee)
 
 Members:
 
