@@ -3,6 +3,7 @@ Thực thể: User, Shop, Product (với nhiều biến thể Size/Màu), Order,
 Thách thức Web: Giao diện sàn thương mại điện tử, giỏ hàng (Session management), tính toán khuyến mãi chồng chéo.
 Simulator: Giả lập "Flash Sale" - Tool bắn hàng nghìn request đặt hàng cùng lúc vào Tomcat, Server phải xử lý Transaction để không bị âm kho.
 Tạo bộ dữ liệu mẫu (Legacy CSV > 10.000 dòng) có cài cắm lỗi sai format 5 - 10%
+
 Để tạo ra bộ dữ liệu rác "Trông như thật", ít trùng lặp nội dung và đa dạng để Demo cho ngầu, mình đã nâng cấp file DataGenerator.java lên phiên bản "Pro Max".
 
 Phiên bản này không dùng "Product 1, Product 2" nhàm chán nữa, mà nó sẽ:
