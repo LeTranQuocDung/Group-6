@@ -68,7 +68,6 @@ classDiagram
         -String fullName
         -String email
         -String role
-        +List~Product~ searchProduct(String keyword)
         +boolean login(String user, String pass)
         +boolean register()
         +boolean isAdmin()
@@ -85,6 +84,7 @@ classDiagram
     }
 
     class ProductManagement {
+        +List~Product~ searchProduct(String keyword)
         +void addProduct(Product p)
         +void updateProduct(Product p)
         +void deleteProduct(int id)
