@@ -1,0 +1,12 @@
+/build/
+/nbbuild/
+/dist/
+/nbdist/
+/nbproject/private/
+.nb-gradle/
+*.class
+*.war
+*.ear
+*.log
+.DS_Store
+Thumbs.db
