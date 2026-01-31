@@ -57,7 +57,7 @@ public class DataGenerator {
 
     public static void main(String[] args) {
         new File(FOLDER).mkdirs();
-        System.out.println("⏳ ĐANG TẠO DATA RÁC 'XỊN' (Đa dạng nội dung)...");
+        System.out.println("Dang tao data rac");
         
         genUsers(TOTAL_USERS);
         genShops(TOTAL_SHOPS);
@@ -67,7 +67,7 @@ public class DataGenerator {
         genOrders(TOTAL_ORDERS);     // <--- Lỗi ngày tháng
         genOrderItems(TOTAL_ITEMS);
 
-        System.out.println("✅ DONE! Vào C:/data/ kiểm tra file CSV xem sướng mắt chưa.");
+        System.out.println("Done");
     }
 
     // 1. GEN USER (HỌ + ĐỆM + TÊN)
@@ -88,10 +88,24 @@ public class DataGenerator {
                 // 🎲 CÀI LỖI 10%
                 if(rand.nextDouble() < 0.1) {
                     int type = rand.nextInt(3);
-                    if(type==0) { email = email.replace("@", ""); note="Loi Email"; } // Mất @
-                    else if(type==1) { phone = phone.substring(1); note="Loi Phone"; } // Mất số 0
-                    else { fullName = fullName.toLowerCase(); note="Loi Ten"; } // Tên viết thường
-                }
+                    switch (type) {
+                        case 0 -> {
+                            email = email.replace("@", "");
+                            note="Loi Email";
+                        }
+                        case 1 -> {
+                            phone = phone.substring(1);
+                            note="Loi Phone";
+                        }
+                        default -> {
+                            fullName = fullName.toLowerCase();
+                            note="Loi Ten";
+                            // Tên viết thường
+                        }
+                    }
+                    // Mất @
+                    // Mất số 0
+                                    }
                 bw.write(i + "," + fullName + "," + email + "," + phone + "," + (rand.nextInt(500)*10000) + "," + note);
                 bw.newLine();
             }
